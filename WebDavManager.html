@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<link rel="icon" href="./favicon.ico" type="image/x-icon">
+    <title>WebDAV - 未名的云</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            max-width: 1200px; 
+            margin: 20px auto; 
+            padding: 0 15px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            color: #222;
+        }
+        
+        /* 工具栏：移动端自动换行 */
+        .toolbar { 
+            margin-bottom: 20px; 
+            padding: 12px; 
+            background: #f5f7fa; 
+            border-radius: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        #fileInput { 
+            flex: 1;
+            min-width: 180px;
+            padding: 8px;
+            font-size: 1em;
+        }
+        
+        /* 路径导航 */
+        .path-nav { 
+            margin-bottom: 15px; 
+            font-size: 1em;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            word-break: break-all;
+        }
+        .path-nav a { 
+            color: #1890ff; 
+            text-decoration: none; 
+        }
+        .path-nav a:hover { 
+            text-decoration: underline; 
+        }
+
+        /* PC端表头（移动端隐藏） */
+        .file-list-header {
+            display: none; /* 默认隐藏，PC端媒体查询显示 */
+        }
+
+        /* 文件列表容器 */
+        #fileList {
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #eee;
+        }
+
+        /* 文件项：移动端默认垂直堆叠 */
+        .file-item { 
+            display: flex;
+            flex-direction: column;
+            padding: 12px 15px; 
+            border-bottom: 1px solid #f0f0f0;
+            background: #fff;
+            transition: background 0.2s;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .file-item:active { 
+            background: #f8f9fa; 
+        }
+
+        /* 文件名行 */
+        .file-name-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .file-icon {
+            font-size: 1.2em;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .file-name {
+            flex: 1;
+            word-break: break-all;
+            font-weight: 500;
+            color: #333;
+        }
+        .file-name a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        /* 元数据行（大小+时间） */
+        .file-meta-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        /* 操作按钮行 */
+        .file-op-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        /* 按钮样式：增大触摸区域 */
+        .btn { 
+            padding: 8px 16px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 0.9em;
+            transition: opacity 0.2s;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            opacity: 0.7;
+        }
+        .btn-primary { 
+            background: #1890ff; 
+            color: white; 
+        }
+        .btn-danger { 
+            background: #ff4d4f; 
+            color: white; 
+        }
+        .btn-default { 
+            background: #e6e6e6; 
+            color: #333; 
+        }
+
+        /* 状态提示 */
+        .loading, .error {
+            padding: 40px 20px;
+            text-align: center;
+            color: #666;
+        }
+        .error {
+            color: #ff4d4f;
+        }
+
+        /* ========== 关键：PC端媒体查询（屏幕宽度 > 768px） ========== */
+        @media (min-width: 768px) {
+            body {
+                margin: 30px auto;
+                padding: 0 20px;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+
+            /* 显示PC端表头 */
+            .file-list-header {
+                display: flex;
+                padding: 12px 15px;
+                background: #fafafa;
+                font-weight: 600;
+                color: #666;
+                border-bottom: 1px solid #eee;
+            }
+            .file-name-col { flex: 3; }
+            .file-size-col { flex: 1; min-width: 100px; }
+            .file-time-col { flex: 1.5; min-width: 180px; }
+            .file-op-col { flex: 1; text-align: right; min-width: 200px; }
+
+            /* 文件项改回横向布局 */
+            .file-item { 
+                flex-direction: row;
+                align-items: center;
+                padding: 12px 15px;
+            }
+
+            /* PC端文件项横向布局，和表头对齐 */
+            .file-item {
+                flex-direction: row;
+                align-items: center;
+            }
+            /* PC端各列宽度和表头严格对应 */
+            .file-name-row { flex: 3; margin-right: 15px; margin-bottom: 0; }
+            .file-meta-row {
+                flex: 2.5;
+                justify-content: flex-start;
+                gap: 80px;
+                margin-bottom: 0;
+            }
+            .file-op-row {
+                flex: 1;
+                justify-content: flex-end;
+                gap: 10px; /* 和工具栏按钮间距完全一致 */
+            }
+            /* 重置PC端文件名样式 */
+            .file-name {
+                margin-bottom: 0;
+                font-weight: normal;
+            }
+
+	    .file-icon {
+                margin-right: 8px;
+            }
+
+            /* 恢复PC端列布局 */
+            .file-name {
+                flex: 3;
+                margin-right: 15px;
+                margin-bottom: 0;
+                font-weight: normal;
+            }
+            .file-meta {
+                color: #666;
+                font-size: 0.9em;
+            }
+            .file-size { 
+                flex: 1; 
+                min-width: 100px;
+                margin-bottom: 0;
+            }
+            .file-time { 
+                flex: 1.5; 
+                min-width: 180px;
+                margin-bottom: 0;
+            }
+            .file-op { 
+                flex: 1; 
+                text-align: right; 
+                min-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>WebDAV 文件管理器</h1>
+
+    <!-- 路径导航 -->
+    <div class="path-nav" id="pathNav"></div>
+
+    <!-- 工具栏 -->
+    <div class="toolbar">
+        <input type="file" id="fileInput" multiple>
+        <button class="btn btn-primary" id="uploadBtn">上传选中文件</button>
+        <button class="btn btn-default" id="createDirBtn">新建目录</button>
+    </div>
+
+    <!-- PC端表头 -->
+    <div class="file-list-header">
+        <div class="file-name-col">文件名</div>
+        <div class="file-size-col">大小</div>
+        <div class="file-time-col">修改时间</div>
+        <div class="file-op-col">操作</div>
+    </div>
+
+    <!-- 文件列表 -->
+    <div id="fileList"></div>
+
+    <script>
+        // ========== 核心配置（和Nginx配置保持一致即可） ==========
+        const DAV_API_ROOT = '/dav/';
+        // ==========================================================
+
+        // 全局状态
+        let currentRelativePath = '';
+        const fileListEl = document.getElementById('fileList');
+        const pathNavEl = document.getElementById('pathNav');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const createDirBtn = document.getElementById('createDirBtn');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPath(currentRelativePath);
+            uploadBtn.addEventListener('click', handleFileUpload);
+            createDirBtn.addEventListener('click', handleCreateDir);
+        });
+
+        // 获取当前API绝对路径
+        function getCurrentApiPath() {
+            return DAV_API_ROOT + currentRelativePath;
+        }
+
+        // 加载指定路径的文件列表
+        async function loadPath(relativePath) {
+            currentRelativePath = relativePath;
+            renderPathNav();
+            fileListEl.innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const apiPath = getCurrentApiPath();
+                const response = await fetch(apiPath, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) throw new Error('认证失败，请刷新页面重新输入账号密码');
+                    throw new Error(`请求失败: HTTP ${response.status} ${response.statusText}`);
+                }
+
+                const html = await response.text();
+                const files = parseAutoIndexHTML(html);
+                renderFileList(files);
+
+            } catch (err) {
+                fileListEl.innerHTML = `<div class="error">❌ ${err.message}</div>`;
+                console.error('加载失败', err);
+            }
+        }
+
+        // 解析Nginx autoindex HTML
+        function parseAutoIndexHTML(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const files = [];
+            const preElement = doc.querySelector('pre');
+
+            if (!preElement) {
+                throw new Error('解析失败：接口未返回正确的目录列表，请检查Nginx配置');
+            }
+
+            const links = preElement.querySelectorAll('a');
+            links.forEach((link) => {
+                const linkText = link.textContent.trim();
+                if (linkText === 'Parent Directory' || linkText === '../') return;
+
+                const href = link.getAttribute('href');
+                const isDir = href.endsWith('/');
+                const fileName = isDir ? href.slice(0, -1) : href;
+
+                let fileSize = '-';
+                let modifyTime = '-';
+                let sibling = link.nextSibling;
+                while (sibling) {
+                    if (sibling.nodeType === Node.TEXT_NODE) {
+                        const textContent = sibling.textContent.trim();
+                        if (textContent) {
+                            const parts = textContent.split(/\s{2,}/).filter(item => item);
+                            if (parts.length >= 2) {
+                                fileSize = parts[0];
+                                modifyTime = parts.slice(1).join(' ');
+                            }
+                            break;
+                        }
+                    }
+                    sibling = sibling.nextSibling;
+                }
+
+                files.push({
+                    fileName,
+                    href,
+                    isDir,
+                    fileSize,
+                    modifyTime,
+                    fullRelativePath: currentRelativePath + href
+                });
+            });
+
+            return files;
+        }
+
+        // 渲染路径导航
+        function renderPathNav() {
+            const pathParts = currentRelativePath.split('/').filter(item => item);
+            let html = `<a href="#" onclick="loadPath(''); return false;">📂 根目录</a>`;
+            let currentPath = '';
+
+            pathParts.forEach((part, index) => {
+                currentPath += part + '/';
+                const isLast = index === pathParts.length - 1;
+                html += isLast 
+                    ? ` / <span>${decodeURIComponent(part)}</span>`
+                    : ` / <a href="#" onclick="loadPath('${currentPath}'); return false;">${decodeURIComponent(part)}</a>`;
+            });
+
+            pathNavEl.innerHTML = html;
+        }
+
+        // 渲染文件列表（核心修改：适配移动端结构）
+        function renderFileList(files) {
+            if (files.length === 0) {
+                fileListEl.innerHTML = '<div class="loading">当前目录为空</div>';
+                return;
+            }
+
+            let html = '';
+            files.forEach(file => {
+                const icon = file.isDir ? '📁' : '📄';
+                const fileNameDecoded = decodeURIComponent(file.fileName);
+                
+                // 文件名链接（点击目录进入）
+                const fileNameLink = file.isDir
+                    ? `<a href="#" onclick="loadPath('${file.fullRelativePath}'); return false;">${fileNameDecoded}</a>`
+                    : `<span>${fileNameDecoded}</span>`;
+
+                html += `
+                    <div class="file-item">
+                        <!-- 第一行：图标+文件名 -->
+                        <div class="file-name-row">
+                            <span class="file-icon">${icon}</span>
+                            <div class="file-name">${fileNameLink}</div>
+                        </div>
+                        
+                        <!-- 第二行：大小+时间（PC端通过CSS隐藏到对应列） -->
+                        <div class="file-meta-row">
+                            <span class="file-meta file-size">${file.fileSize}</span>
+                            <span class="file-meta file-time">${file.modifyTime}</span>
+                        </div>
+                        
+                        <!-- 第三行：操作按钮 -->
+                        <div class="file-op-row">
+                            <button class="btn btn-default" onclick="handleRename('${file.fullRelativePath}', '${file.fileName}', ${file.isDir})">重命名</button>
+                            <button class="btn btn-danger" onclick="handleDelete('${file.fullRelativePath}', ${file.isDir})">删除</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            fileListEl.innerHTML = html;
+        }
+
+        // 处理文件上传
+        async function handleFileUpload() {
+            const files = fileInput.files;
+            if (files.length === 0) {
+                alert('请先选择要上传的文件');
+                return;
+            }
+
+            const uploadPromises = Array.from(files).map(async (file) => {
+                const encodedFileName = encodeURIComponent(file.name);
+                const targetPath = DAV_API_ROOT + currentRelativePath + encodedFileName;
+
+                try {
+                    const response = await fetch(targetPath, {
+                        method: 'PUT',
+                        body: file,
+                        credentials: 'include'
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return { name: file.name, success: true };
+                } catch (err) {
+                    console.error(`上传 ${file.name} 失败`, err);
+                    return { name: file.name, success: false, error: err };
+                }
+            });
+
+            const results = await Promise.all(uploadPromises);
+            const failed = results.filter(r => !r.success);
+            if (failed.length > 0) alert(`部分文件上传失败：\n${failed.map(f => f.name).join('\n')}`);
+
+            fileInput.value = '';
+            loadPath(currentRelativePath);
+        }
+
+        // 处理新建目录
+        async function handleCreateDir() {
+            const dirName = prompt('请输入新建目录的名称：');
+            if (!dirName || dirName.trim() === '') return;
+
+            const encodedDirName = encodeURIComponent(dirName.trim());
+            const targetPath = DAV_API_ROOT + currentRelativePath + encodedDirName + '/';
+
+            try {
+                const response = await fetch(targetPath, {
+                    method: 'MKCOL',
+                    credentials: 'include'
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                loadPath(currentRelativePath);
+            } catch (err) {
+                alert(`创建目录失败：${err.message}`);
+                console.error('创建目录失败', err);
+            }
+        }
+
+        // 处理重命名（修复版）
+        async function handleRename(oldFullPath, oldFileName, isDir) {
+            const oldNameDecoded = decodeURIComponent(oldFileName);
+            // 弹窗默认值使用完整的原名称，不再截断后缀，区分文件/目录提示
+            const promptTip = isDir 
+                ? '请输入目录新名称：'
+                : '请输入文件新名称（建议保留后缀名，避免文件无法识别）：';
+            const newName = prompt(promptTip, oldNameDecoded);
+            
+            // 校验：空值、和原名一致直接退出
+            if (!newName || newName.trim() === '' || newName.trim() === oldNameDecoded) return;
+
+            // 构建新路径，完整保留用户输入的名称
+            const encodedNewName = encodeURIComponent(newName.trim());
+            const oldPath = DAV_API_ROOT + oldFullPath;
+            const pathPrefix = oldFullPath.substring(0, oldFullPath.lastIndexOf(oldFileName));
+            const newFullPath = pathPrefix + encodedNewName + (isDir ? '/' : '');
+            const newPath = DAV_API_ROOT + newFullPath;
+
+            try {
+                const response = await fetch(oldPath, {
+                    method: 'MOVE',
+                    headers: { 'Destination': newPath },
+                    credentials: 'include'
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                loadPath(currentRelativePath);
+            } catch (err) {
+                alert(`重命名失败：${err.message}`);
+                console.error('重命名失败', err);
+            }
+        }
+
+        // 处理删除
+        async function handleDelete(fullPath, isDir) {
+            const confirmMsg = isDir 
+                ? `⚠️ 确定要删除此目录吗？\n注意：仅支持删除空目录，非空目录会删除失败`
+                : `⚠️ 确定要删除此文件吗？`;
+            if (!confirm(confirmMsg)) return;
+
+            const targetPath = DAV_API_ROOT + fullPath;
+            try {
+                const response = await fetch(targetPath, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                loadPath(currentRelativePath);
+            } catch (err) {
+                alert(`删除失败：${err.message}`);
+                console.error('删除失败', err);
+            }
+        }
+    </script>
+</body>
+</html>
