@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-	<link rel="icon" href="./favicon.ico" type="image/x-icon">
+    <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <title>WebDAV - 未名的云</title>
     <style>
         * {
@@ -182,8 +182,8 @@
                 border-bottom: 1px solid #eee;
             }
             .file-name-col { flex: 3; }
-            .file-size-col { flex: 1; min-width: 100px; }
-            .file-time-col { flex: 1.5; min-width: 180px; }
+            .file-size-col { text-align: right; flex: 1; min-width: 100px; }
+            .file-time-col { text-align: right; flex: 1.5; min-width: 180px; }
             .file-op-col { flex: 1; text-align: right; min-width: 200px; }
 
             /* 文件项改回横向布局 */
@@ -217,7 +217,7 @@
                 font-weight: normal;
             }
 
-	    .file-icon {
+			.file-icon {
                 margin-right: 8px;
             }
 
@@ -233,12 +233,14 @@
                 font-size: 0.9em;
             }
             .file-size { 
-                flex: 1; 
+                text-align: right;
+				flex: 1; 
                 min-width: 100px;
                 margin-bottom: 0;
             }
             .file-time { 
-                flex: 1.5; 
+                text-align: right;
+				flex: 1.5; 
                 min-width: 180px;
                 margin-bottom: 0;
             }
@@ -275,276 +277,266 @@
     <div id="fileList"></div>
 
     <script>
-        // ========== 核心配置（和Nginx配置保持一致即可） ==========
-        const DAV_API_ROOT = '/dav/';
-        // ==========================================================
+    // ========== 核心配置（和Nginx配置保持一致即可） ==========
+    const DAV_API_ROOT = '/dav/';
+    // ==========================================================
 
-        // 全局状态
-        let currentRelativePath = '';
-        const fileListEl = document.getElementById('fileList');
-        const pathNavEl = document.getElementById('pathNav');
-        const fileInput = document.getElementById('fileInput');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const createDirBtn = document.getElementById('createDirBtn');
+    // 全局状态
+    let currentRelativePath = '';
+    const fileListEl = document.getElementById('fileList');
+    const pathNavEl = document.getElementById('pathNav');
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const createDirBtn = document.getElementById('createDirBtn');
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            loadPath(currentRelativePath);
-            uploadBtn.addEventListener('click', handleFileUpload);
-            createDirBtn.addEventListener('click', handleCreateDir);
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        loadPath(currentRelativePath);
+        uploadBtn.addEventListener('click', handleFileUpload);
+        createDirBtn.addEventListener('click', handleCreateDir);
+    });
+
+    // 获取当前API绝对路径
+    function getCurrentApiPath() {
+        return DAV_API_ROOT + currentRelativePath;
+    }
+
+    // 加载指定路径的文件列表（纯JSON版，无HTML解析）
+    async function loadPath(relativePath) {
+        currentRelativePath = relativePath;
+        renderPathNav();
+        fileListEl.innerHTML = '<div class="loading">加载中...</div>';
+
+        try {
+            const apiPath = getCurrentApiPath();
+            const response = await fetch(apiPath, {
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) throw new Error('认证失败，请刷新页面重新输入账号密码');
+                throw new Error(`请求失败: HTTP ${response.status} ${response.statusText}`);
+            }
+
+            // 直接解析JSON，彻底删除旧的HTML解析逻辑
+            const rawFileList = await response.json();
+            const files = parseAutoIndexJSON(rawFileList);
+            renderFileList(files);
+
+        } catch (err) {
+            fileListEl.innerHTML = `<div class="error">❌ ${err.message}</div>`;
+            console.error('加载失败', err);
+        }
+    }
+
+    // 纯JSON解析函数（极简稳定，替代原HTML解析）
+    function parseAutoIndexJSON(jsonData) {
+        const files = [];
+        jsonData.forEach(item => {
+            // 跳过上级目录
+            if (item.name === '..') return;
+
+            const isDir = item.type === 'directory';
+            const fileName = item.name;
+            const href = isDir ? `${encodeURIComponent(fileName)}/` : encodeURIComponent(fileName);
+            
+            // 前端自由格式化大小（不受Nginx配置影响）
+            const formatSize = (bytes) => {
+                if (bytes === 0 || isDir) return '-';
+                const units = ['B', 'K', 'M', 'G', 'T'];
+                const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + units[i];
+            };
+
+            // 前端自由格式化时间（不受Nginx配置影响）
+            const formatTime = (isoTime) => {
+                const date = new Date(isoTime);
+                return date.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            };
+
+            files.push({
+                fileName,
+                href,
+                isDir,
+                fileSize: formatSize(item.size),
+                modifyTime: formatTime(item.mtime),
+                fullRelativePath: currentRelativePath + href
+            });
+        });
+        return files;
+    }
+
+    // 渲染路径导航（完全不变）
+    function renderPathNav() {
+        const pathParts = currentRelativePath.split('/').filter(item => item);
+        let html = `<a href="#" onclick="loadPath(''); return false;">📂 根目录</a>`;
+        let currentPath = '';
+
+        pathParts.forEach((part, index) => {
+            currentPath += part + '/';
+            const isLast = index === pathParts.length - 1;
+            html += isLast 
+                ? ` / <span>${decodeURIComponent(part)}</span>`
+                : ` / <a href="#" onclick="loadPath('${currentPath}'); return false;">${decodeURIComponent(part)}</a>`;
         });
 
-        // 获取当前API绝对路径
-        function getCurrentApiPath() {
-            return DAV_API_ROOT + currentRelativePath;
+        pathNavEl.innerHTML = html;
+    }
+
+    // 渲染文件列表（完全不变）
+    function renderFileList(files) {
+        if (files.length === 0) {
+            fileListEl.innerHTML = '<div class="loading">当前目录为空</div>';
+            return;
         }
 
-        // 加载指定路径的文件列表
-        async function loadPath(relativePath) {
-            currentRelativePath = relativePath;
-            renderPathNav();
-            fileListEl.innerHTML = '<div class="loading">加载中...</div>';
-
-            try {
-                const apiPath = getCurrentApiPath();
-                const response = await fetch(apiPath, {
-                    credentials: 'include'
-                });
-
-                if (!response.ok) {
-                    if (response.status === 401) throw new Error('认证失败，请刷新页面重新输入账号密码');
-                    throw new Error(`请求失败: HTTP ${response.status} ${response.statusText}`);
-                }
-
-                const html = await response.text();
-                const files = parseAutoIndexHTML(html);
-                renderFileList(files);
-
-            } catch (err) {
-                fileListEl.innerHTML = `<div class="error">❌ ${err.message}</div>`;
-                console.error('加载失败', err);
-            }
-        }
-
-        // 解析Nginx autoindex HTML
-        function parseAutoIndexHTML(html) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const files = [];
-            const preElement = doc.querySelector('pre');
-
-            if (!preElement) {
-                throw new Error('解析失败：接口未返回正确的目录列表，请检查Nginx配置');
-            }
-
-            const links = preElement.querySelectorAll('a');
-            links.forEach((link) => {
-                const linkText = link.textContent.trim();
-                if (linkText === 'Parent Directory' || linkText === '../') return;
-
-                const href = link.getAttribute('href');
-                const isDir = href.endsWith('/');
-                const fileName = isDir ? href.slice(0, -1) : href;
-
-                let fileSize = '-';
-                let modifyTime = '-';
-                let sibling = link.nextSibling;
-                while (sibling) {
-                    if (sibling.nodeType === Node.TEXT_NODE) {
-                        const textContent = sibling.textContent.trim();
-                        if (textContent) {
-                            const parts = textContent.split(/\s{2,}/).filter(item => item);
-                            if (parts.length >= 2) {
-                                fileSize = parts[0];
-                                modifyTime = parts.slice(1).join(' ');
-                            }
-                            break;
-                        }
-                    }
-                    sibling = sibling.nextSibling;
-                }
-
-                files.push({
-                    fileName,
-                    href,
-                    isDir,
-                    fileSize,
-                    modifyTime,
-                    fullRelativePath: currentRelativePath + href
-                });
-            });
-
-            return files;
-        }
-
-        // 渲染路径导航
-        function renderPathNav() {
-            const pathParts = currentRelativePath.split('/').filter(item => item);
-            let html = `<a href="#" onclick="loadPath(''); return false;">📂 根目录</a>`;
-            let currentPath = '';
-
-            pathParts.forEach((part, index) => {
-                currentPath += part + '/';
-                const isLast = index === pathParts.length - 1;
-                html += isLast 
-                    ? ` / <span>${decodeURIComponent(part)}</span>`
-                    : ` / <a href="#" onclick="loadPath('${currentPath}'); return false;">${decodeURIComponent(part)}</a>`;
-            });
-
-            pathNavEl.innerHTML = html;
-        }
-
-        // 渲染文件列表（核心修改：适配移动端结构）
-        function renderFileList(files) {
-            if (files.length === 0) {
-                fileListEl.innerHTML = '<div class="loading">当前目录为空</div>';
-                return;
-            }
-
-            let html = '';
-            files.forEach(file => {
-                const icon = file.isDir ? '📁' : '📄';
-                const fileNameDecoded = decodeURIComponent(file.fileName);
-                
-                // 文件名链接（点击目录进入）
-                const fileNameLink = file.isDir
-                    ? `<a href="#" onclick="loadPath('${file.fullRelativePath}'); return false;">${fileNameDecoded}</a>`
-                    : `<span>${fileNameDecoded}</span>`;
-
-                html += `
-                    <div class="file-item">
-                        <!-- 第一行：图标+文件名 -->
-                        <div class="file-name-row">
-                            <span class="file-icon">${icon}</span>
-                            <div class="file-name">${fileNameLink}</div>
-                        </div>
-                        
-                        <!-- 第二行：大小+时间（PC端通过CSS隐藏到对应列） -->
-                        <div class="file-meta-row">
-                            <span class="file-meta file-size">${file.fileSize}</span>
-                            <span class="file-meta file-time">${file.modifyTime}</span>
-                        </div>
-                        
-                        <!-- 第三行：操作按钮 -->
-                        <div class="file-op-row">
-                            <button class="btn btn-default" onclick="handleRename('${file.fullRelativePath}', '${file.fileName}', ${file.isDir})">重命名</button>
-                            <button class="btn btn-danger" onclick="handleDelete('${file.fullRelativePath}', ${file.isDir})">删除</button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            fileListEl.innerHTML = html;
-        }
-
-        // 处理文件上传
-        async function handleFileUpload() {
-            const files = fileInput.files;
-            if (files.length === 0) {
-                alert('请先选择要上传的文件');
-                return;
-            }
-
-            const uploadPromises = Array.from(files).map(async (file) => {
-                const encodedFileName = encodeURIComponent(file.name);
-                const targetPath = DAV_API_ROOT + currentRelativePath + encodedFileName;
-
-                try {
-                    const response = await fetch(targetPath, {
-                        method: 'PUT',
-                        body: file,
-                        credentials: 'include'
-                    });
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    return { name: file.name, success: true };
-                } catch (err) {
-                    console.error(`上传 ${file.name} 失败`, err);
-                    return { name: file.name, success: false, error: err };
-                }
-            });
-
-            const results = await Promise.all(uploadPromises);
-            const failed = results.filter(r => !r.success);
-            if (failed.length > 0) alert(`部分文件上传失败：\n${failed.map(f => f.name).join('\n')}`);
-
-            fileInput.value = '';
-            loadPath(currentRelativePath);
-        }
-
-        // 处理新建目录
-        async function handleCreateDir() {
-            const dirName = prompt('请输入新建目录的名称：');
-            if (!dirName || dirName.trim() === '') return;
-
-            const encodedDirName = encodeURIComponent(dirName.trim());
-            const targetPath = DAV_API_ROOT + currentRelativePath + encodedDirName + '/';
-
-            try {
-                const response = await fetch(targetPath, {
-                    method: 'MKCOL',
-                    credentials: 'include'
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                loadPath(currentRelativePath);
-            } catch (err) {
-                alert(`创建目录失败：${err.message}`);
-                console.error('创建目录失败', err);
-            }
-        }
-
-        // 处理重命名（修复版）
-        async function handleRename(oldFullPath, oldFileName, isDir) {
-            const oldNameDecoded = decodeURIComponent(oldFileName);
-            // 弹窗默认值使用完整的原名称，不再截断后缀，区分文件/目录提示
-            const promptTip = isDir 
-                ? '请输入目录新名称：'
-                : '请输入文件新名称（建议保留后缀名，避免文件无法识别）：';
-            const newName = prompt(promptTip, oldNameDecoded);
+        let html = '';
+        files.forEach(file => {
+            const icon = file.isDir ? '📁' : '📄';
+            const fileNameDecoded = decodeURIComponent(file.fileName);
             
-            // 校验：空值、和原名一致直接退出
-            if (!newName || newName.trim() === '' || newName.trim() === oldNameDecoded) return;
+            // 文件名链接（点击目录进入）
+            const fileNameLink = file.isDir
+                ? `<a href="#" onclick="loadPath('${file.fullRelativePath}'); return false;">${fileNameDecoded}</a>`
+                : `<span>${fileNameDecoded}</span>`;
 
-            // 构建新路径，完整保留用户输入的名称
-            const encodedNewName = encodeURIComponent(newName.trim());
-            const oldPath = DAV_API_ROOT + oldFullPath;
-            const pathPrefix = oldFullPath.substring(0, oldFullPath.lastIndexOf(oldFileName));
-            const newFullPath = pathPrefix + encodedNewName + (isDir ? '/' : '');
-            const newPath = DAV_API_ROOT + newFullPath;
+            html += `
+                <div class="file-item">
+                    <!-- 第一行：图标+文件名 -->
+                    <div class="file-name-row">
+                        <span class="file-icon">${icon}</span>
+                        <div class="file-name">${fileNameLink}</div>
+                    </div>
+                    
+                    <!-- 第二行：大小+时间 -->
+                    <div class="file-meta-row">
+                        <span class="file-meta file-size">${file.fileSize}</span>
+                        <span class="file-meta file-time">${file.modifyTime}</span>
+                    </div>
+                    
+                    <!-- 第三行：操作按钮 -->
+                    <div class="file-op-row">
+                        <button class="btn btn-default" onclick="handleRename('${file.fullRelativePath}', '${file.fileName}', ${file.isDir})">重命名</button>
+                        <button class="btn btn-danger" onclick="handleDelete('${file.fullRelativePath}', ${file.isDir})">删除</button>
+                    </div>
+                </div>
+            `;
+        });
 
-            try {
-                const response = await fetch(oldPath, {
-                    method: 'MOVE',
-                    headers: { 'Destination': newPath },
-                    credentials: 'include'
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                loadPath(currentRelativePath);
-            } catch (err) {
-                alert(`重命名失败：${err.message}`);
-                console.error('重命名失败', err);
-            }
+        fileListEl.innerHTML = html;
+    }
+
+    // 处理文件上传（完全不变）
+    async function handleFileUpload() {
+        const files = fileInput.files;
+        if (files.length === 0) {
+            alert('请先选择要上传的文件');
+            return;
         }
 
-        // 处理删除
-        async function handleDelete(fullPath, isDir) {
-            const confirmMsg = isDir 
-                ? `⚠️ 确定要删除此目录吗？\n注意：仅支持删除空目录，非空目录会删除失败`
-                : `⚠️ 确定要删除此文件吗？`;
-            if (!confirm(confirmMsg)) return;
+        const uploadPromises = Array.from(files).map(async (file) => {
+            const encodedFileName = encodeURIComponent(file.name);
+            const targetPath = DAV_API_ROOT + currentRelativePath + encodedFileName;
 
-            const targetPath = DAV_API_ROOT + fullPath;
             try {
                 const response = await fetch(targetPath, {
-                    method: 'DELETE',
+                    method: 'PUT',
+                    body: file,
                     credentials: 'include'
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                loadPath(currentRelativePath);
+                return { name: file.name, success: true };
             } catch (err) {
-                alert(`删除失败：${err.message}`);
-                console.error('删除失败', err);
+                console.error(`上传 ${file.name} 失败`, err);
+                return { name: file.name, success: false, error: err };
             }
+        });
+
+        const results = await Promise.all(uploadPromises);
+        const failed = results.filter(r => !r.success);
+        if (failed.length > 0) alert(`部分文件上传失败：\n${failed.map(f => f.name).join('\n')}`);
+
+        fileInput.value = '';
+        loadPath(currentRelativePath);
+    }
+
+    // 处理新建目录（完全不变）
+    async function handleCreateDir() {
+        const dirName = prompt('请输入新建目录的名称：');
+        if (!dirName || dirName.trim() === '') return;
+
+        const encodedDirName = encodeURIComponent(dirName.trim());
+        const targetPath = DAV_API_ROOT + currentRelativePath + encodedDirName + '/';
+
+        try {
+            const response = await fetch(targetPath, {
+                method: 'MKCOL',
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            loadPath(currentRelativePath);
+        } catch (err) {
+            alert(`创建目录失败：${err.message}`);
+            console.error('创建目录失败', err);
         }
+    }
+
+    // 处理重命名（完全不变）
+    async function handleRename(oldFullPath, oldFileName, isDir) {
+        const oldNameDecoded = decodeURIComponent(oldFileName);
+        const promptTip = isDir 
+            ? '请输入目录新名称：'
+            : '请输入文件新名称（建议保留后缀名，避免文件无法识别）：';
+        const newName = prompt(promptTip, oldNameDecoded);
+        
+        if (!newName || newName.trim() === '' || newName.trim() === oldNameDecoded) return;
+
+        const encodedNewName = encodeURIComponent(newName.trim());
+        const oldPath = DAV_API_ROOT + oldFullPath;
+        const pathPrefix = oldFullPath.substring(0, oldFullPath.lastIndexOf(oldFileName));
+        const newFullPath = pathPrefix + encodedNewName + (isDir ? '/' : '');
+        const newPath = DAV_API_ROOT + newFullPath;
+
+        try {
+            const response = await fetch(oldPath, {
+                method: 'MOVE',
+                headers: { 'Destination': newPath },
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            loadPath(currentRelativePath);
+        } catch (err) {
+            alert(`重命名失败：${err.message}`);
+            console.error('重命名失败', err);
+        }
+    }
+
+    // 处理删除（完全不变）
+    async function handleDelete(fullPath, isDir) {
+        const confirmMsg = isDir 
+            ? `⚠️ 确定要删除此目录吗？\n注意：仅支持删除空目录，非空目录会删除失败`
+            : `⚠️ 确定要删除此文件吗？`;
+        if (!confirm(confirmMsg)) return;
+
+        const targetPath = DAV_API_ROOT + fullPath;
+        try {
+            const response = await fetch(targetPath, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            loadPath(currentRelativePath);
+        } catch (err) {
+            alert(`删除失败：${err.message}`);
+            console.error('删除失败', err);
+        }
+    }
     </script>
 </body>
 </html>
