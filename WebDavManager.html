@@ -27,21 +27,27 @@
         }
         
         /* 工具栏：移动端自动换行 */
-        .toolbar { 
-            margin-bottom: 20px; 
-            padding: 12px; 
-            background: #f5f7fa; 
+        .toolbar {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #f5f7fa;
             border-radius: 8px;
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
             align-items: center;
         }
-        #fileInput { 
+        #fileInput {
             flex: 1;
             min-width: 180px;
             padding: 8px;
             font-size: 1em;
+        }
+        /* 按钮容器：在移动端右对齐 */
+        .toolbar-buttons {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
         }
         
         /* 路径导航 */
@@ -106,8 +112,11 @@
             color: #333;
         }
         .file-name a {
-            color: inherit;
+            color: #1890ff;
             text-decoration: none;
+        }
+        .file-name a:hover {
+            text-decoration: underline;
         }
 
         /* 元数据行（大小+时间） */
@@ -182,9 +191,9 @@
                 border-bottom: 1px solid #eee;
             }
             .file-name-col { flex: 3; }
-            .file-size-col { text-align: right; flex: 1; min-width: 100px; }
-            .file-time-col { text-align: right; flex: 1.5; min-width: 180px; }
-            .file-op-col { flex: 1; text-align: right; min-width: 200px; }
+            .file-size-col { text-align: right; flex: 1; min-width: 20px; }
+            .file-time-col { text-align: right; flex: 1.5; min-width: 50px; }
+            .file-op-col { flex: 1; text-align: right; min-width: 280px; }
 
             /* 文件项改回横向布局 */
             .file-item { 
@@ -203,7 +212,7 @@
             .file-meta-row {
                 flex: 2.5;
                 justify-content: flex-start;
-                gap: 80px;
+                gap: 0;
                 margin-bottom: 0;
             }
             .file-op-row {
@@ -211,44 +220,138 @@
                 justify-content: flex-end;
                 gap: 10px; /* 和工具栏按钮间距完全一致 */
             }
-            /* 重置PC端文件名样式 */
-            .file-name {
-                margin-bottom: 0;
-                font-weight: normal;
-            }
-
-			.file-icon {
+            /* 优化PC端列布局 - 与表头严格对齐 */
+            .file-icon {
                 margin-right: 8px;
             }
-
-            /* 恢复PC端列布局 */
-            .file-name {
+            /* 文件名列 */
+            .file-name-row {
                 flex: 3;
                 margin-right: 15px;
                 margin-bottom: 0;
+            }
+            .file-name {
+                margin-bottom: 0;
                 font-weight: normal;
+            }
+
+            /* 元数据列（包含大小和时间） - 调整为与表头对齐 */
+            .file-meta-row {
+                display: flex;
+                flex: 2.5; /* 1 + 1.5 = 2.5，与表头大小+时间列总和一致 */
+                justify-content: flex-start;
+                gap: 0; /* 取消间隔，使用与表头相同的对齐方式 */
+                margin-bottom: 0;
             }
             .file-meta {
                 color: #666;
                 font-size: 0.9em;
             }
-            .file-size { 
+            /* 文件大小列 - 与表头 .file-size-col 一致 */
+            .file-size {
                 text-align: right;
-				flex: 1; 
-                min-width: 100px;
+                flex: 1;
+                min-width: 20px;
                 margin-bottom: 0;
             }
-            .file-time { 
+            /* 文件时间列 - 与表头 .file-time-col 一致 */
+            .file-time {
                 text-align: right;
-				flex: 1.5; 
-                min-width: 180px;
+                flex: 1.5;
+                min-width: 50px;
                 margin-bottom: 0;
             }
-            .file-op { 
-                flex: 1; 
-                text-align: right; 
-                min-width: 200px;
+            /* 操作列 - 与表头 .file-op-col 严格一致 */
+            .file-op-row {
+                flex: 1;
+                text-align: right;
+                min-width: 280px;
+                margin-bottom: 0;
             }
+
+            /* PC端上传进度条布局 */
+            .progress-item {
+                flex-direction: row !important;
+                align-items: center !important;
+            }
+            .progress-file-name {
+                flex: 2;
+                margin-right: 15px;
+                margin-bottom: 0 !important;
+            }
+            .progress-bar-container {
+                flex: 2;
+                margin-right: 15px;
+                margin-bottom: 0 !important;
+            }
+            .progress-status {
+                flex: 0 0 80px;
+                margin-right: 10px;
+                margin-bottom: 0 !important;
+                text-align: right;
+            }
+            .progress-btn-cancel {
+                flex: 0 0 auto;
+                margin-bottom: 0 !important;
+            }
+        }
+
+        /* ========== 上传进度条样式 ========== */
+        .progress-item {
+            display: flex;
+            flex-direction: column;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .progress-item:last-child {
+            border-bottom: none;
+        }
+        .progress-file-name {
+            font-size: 0.9em;
+            color: #333;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+        .progress-bar-container {
+            width: 100%;
+            height: 20px;
+            background: #e8e8e8;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #1890ff, #52c41a);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+        }
+        .progress-bar-text {
+            font-size: 0.75em;
+            color: white;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .progress-status {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .progress-status.success {
+            color: #52c41a;
+        }
+        .progress-status.error {
+            color: #ff4d4f;
+        }
+        .progress-btn-cancel {
+            padding: 6px 12px;
+            font-size: 0.85em;
+            min-height: 36px;
+            align-self: flex-end;
         }
     </style>
 </head>
@@ -261,8 +364,16 @@
     <!-- 工具栏 -->
     <div class="toolbar">
         <input type="file" id="fileInput" multiple>
-        <button class="btn btn-primary" id="uploadBtn">上传选中文件</button>
-        <button class="btn btn-default" id="createDirBtn">新建目录</button>
+        <div class="toolbar-buttons">
+            <button class="btn btn-primary" id="uploadBtn">上传选中文件</button>
+            <button class="btn btn-default" id="createDirBtn">新建目录</button>
+        </div>
+    </div>
+
+    <!-- 上传进度条区域 -->
+    <div id="uploadProgressArea" style="display: none; margin-bottom: 20px; padding: 12px; background: #f5f7fa; border-radius: 8px;">
+        <h3 style="margin-bottom: 10px; font-size: 1em; color: #222;">上传进度</h3>
+        <div id="progressList"></div>
     </div>
 
     <!-- PC端表头 -->
@@ -279,6 +390,20 @@
     <script>
     // ========== 核心配置（和Nginx配置保持一致即可） ==========
     const DAV_API_ROOT = '/dav/';
+
+    // 支持在线浏览的文件扩展名列表（可配置）
+    const VIEWABLE_EXTENSIONS = [
+        // HTML/XML
+        'html', 'htm', 'xml', 'xhtml',
+        // 图片
+        'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico',
+        // 文本
+        'txt', 'md', 'json', 'css', 'js', 'ts', 'jsx', 'tsx', 'py', 'java', 'cpp', 'c', 'h', 'rb', 'php', 'sh', 'bat',
+        // 文档
+        'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+        // 媒体
+        'mp3', 'mp4', 'webm', 'wav', 'ogg', 'flac', 'avi', 'mov', 'mkv'
+    ];
     // ==========================================================
 
     // 全局状态
@@ -299,6 +424,12 @@
     // 获取当前API绝对路径
     function getCurrentApiPath() {
         return DAV_API_ROOT + currentRelativePath;
+    }
+
+    // 判断文件是否支持在线浏览
+    function isViewableFile(fileName) {
+        const ext = fileName.toLowerCase().split('.').pop();
+        return VIEWABLE_EXTENSIONS.includes(ext);
     }
 
     // 加载指定路径的文件列表（纯JSON版，无HTML解析）
@@ -401,10 +532,12 @@
             const icon = file.isDir ? '📁' : '📄';
             const fileNameDecoded = decodeURIComponent(file.fileName);
             
-            // 文件名链接（点击目录进入）
+            // 文件名链接（点击目录进入，点击可浏览文件在新窗口打开，点击不可浏览文件下载）
             const fileNameLink = file.isDir
                 ? `<a href="#" onclick="loadPath('${file.fullRelativePath}'); return false;">${fileNameDecoded}</a>`
-                : `<span>${fileNameDecoded}</span>`;
+                : isViewableFile(fileNameDecoded)
+                    ? `<a href="${DAV_API_ROOT}${file.fullRelativePath}" target="_blank">${fileNameDecoded}</a>`
+                    : `<a href="${DAV_API_ROOT}${file.fullRelativePath}" target="_blank" download="${fileNameDecoded}">${fileNameDecoded}</a>`;
 
             html += `
                 <div class="file-item">
@@ -422,6 +555,7 @@
                     
                     <!-- 第三行：操作按钮 -->
                     <div class="file-op-row">
+                        ${!file.isDir ? `<button class="btn btn-default" onclick="handleDownload('${file.fullRelativePath}', '${file.fileName}')">下载</button>` : ''}
                         <button class="btn btn-default" onclick="handleRename('${file.fullRelativePath}', '${file.fileName}', ${file.isDir})">重命名</button>
                         <button class="btn btn-danger" onclick="handleDelete('${file.fullRelativePath}', ${file.isDir})">删除</button>
                     </div>
@@ -432,38 +566,136 @@
         fileListEl.innerHTML = html;
     }
 
-    // 处理文件上传（完全不变）
-    async function handleFileUpload() {
+    // 处理文件上传（带进度条）
+    function handleFileUpload() {
         const files = fileInput.files;
         if (files.length === 0) {
             alert('请先选择要上传的文件');
             return;
         }
 
-        const uploadPromises = Array.from(files).map(async (file) => {
+        // 显示进度条区域
+        const progressArea = document.getElementById('uploadProgressArea');
+        const progressList = document.getElementById('progressList');
+        progressArea.style.display = 'block';
+        progressList.innerHTML = '';
+
+        // 用于跟踪所有上传请求
+        const xhrs = [];
+        window.uploadXhrs = xhrs;
+        let completedCount = 0;
+        const totalFiles = files.length;
+
+        Array.from(files).forEach((file, index) => {
             const encodedFileName = encodeURIComponent(file.name);
             const targetPath = DAV_API_ROOT + currentRelativePath + encodedFileName;
 
-            try {
-                const response = await fetch(targetPath, {
-                    method: 'PUT',
-                    body: file,
-                    credentials: 'include'
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                return { name: file.name, success: true };
-            } catch (err) {
-                console.error(`上传 ${file.name} 失败`, err);
-                return { name: file.name, success: false, error: err };
-            }
+            // 创建进度条元素
+            const progressItem = document.createElement('div');
+            progressItem.className = 'progress-item';
+            progressItem.innerHTML = `
+                <div class="progress-file-name">${file.name}</div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" style="width: 0%">
+                        <span class="progress-bar-text">0%</span>
+                    </div>
+                </div>
+                <div class="progress-status">准备上传...</div>
+                <button class="btn btn-default progress-btn-cancel" onclick="cancelUpload(${index})">取消</button>
+            `;
+            progressList.appendChild(progressItem);
+
+            // 创建XMLHttpRequest
+            const xhr = new XMLHttpRequest();
+            xhrs[index] = xhr;
+
+            xhr.open('PUT', targetPath);
+            xhr.withCredentials = true;
+
+            // 上传进度监听
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = Math.round((e.loaded / e.total) * 100);
+                    const progressFill = progressItem.querySelector('.progress-bar-fill');
+                    const progressText = progressItem.querySelector('.progress-bar-text');
+                    const progressStatus = progressItem.querySelector('.progress-status');
+
+                    progressFill.style.width = percentComplete + '%';
+                    progressText.textContent = percentComplete + '%';
+                    progressStatus.textContent = '上传中...';
+                }
+            });
+
+            // 上传完成监听
+            xhr.addEventListener('load', () => {
+                const progressStatus = progressItem.querySelector('.progress-status');
+                const cancelBtn = progressItem.querySelector('.progress-btn-cancel');
+
+                completedCount++;
+
+                if (xhr.status === 200 || xhr.status === 201) {
+                    progressStatus.textContent = '上传成功';
+                    progressStatus.className = 'progress-status success';
+                    cancelBtn.textContent = '完成';
+                    cancelBtn.disabled = true;
+                } else {
+                    progressStatus.textContent = `上传失败 (${xhr.status})`;
+                    progressStatus.className = 'progress-status error';
+                    cancelBtn.textContent = '重试';
+                    cancelBtn.onclick = () => {
+                        // 重试逻辑
+                        handleFileUpload();
+                    };
+                }
+
+                // 所有文件上传完成后刷新文件列表
+                if (completedCount === totalFiles) {
+                    setTimeout(() => {
+                        fileInput.value = '';
+                        loadPath(currentRelativePath);
+                        // 可选：3秒后自动隐藏进度条
+                        setTimeout(() => {
+                            progressArea.style.display = 'none';
+                        }, 3000);
+                    }, 500);
+                }
+            });
+
+            // 上传错误监听
+            xhr.addEventListener('error', () => {
+                const progressStatus = progressItem.querySelector('.progress-status');
+                const cancelBtn = progressItem.querySelector('.progress-btn-cancel');
+                progressStatus.textContent = '网络错误';
+                progressStatus.className = 'progress-status error';
+                cancelBtn.textContent = '重试';
+                cancelBtn.onclick = () => {
+                    handleFileUpload();
+                };
+            });
+
+            // 取消按钮事件（已在HTML中绑定）
+            // 发送请求
+            xhr.send(file);
         });
+    }
 
-        const results = await Promise.all(uploadPromises);
-        const failed = results.filter(r => !r.success);
-        if (failed.length > 0) alert(`部分文件上传失败：\n${failed.map(f => f.name).join('\n')}`);
-
-        fileInput.value = '';
-        loadPath(currentRelativePath);
+    // 取消上传
+    function cancelUpload(index) {
+        const xhrs = window.uploadXhrs || [];
+        const xhr = xhrs[index];
+        if (xhr && xhr.readyState !== XMLHttpRequest.DONE) {
+            xhr.abort();
+            const progressList = document.getElementById('progressList');
+            const progressItem = progressList.children[index];
+            const progressStatus = progressItem.querySelector('.progress-status');
+            const cancelBtn = progressItem.querySelector('.progress-btn-cancel');
+            progressStatus.textContent = '已取消';
+            progressStatus.className = 'progress-status error';
+            cancelBtn.textContent = '重试';
+            cancelBtn.onclick = () => {
+                handleFileUpload();
+            };
+        }
     }
 
     // 处理新建目录（完全不变）
@@ -517,9 +749,21 @@
         }
     }
 
+    // 处理下载（强制下载任何文件）
+    function handleDownload(fullPath, fileName) {
+        const fileNameDecoded = decodeURIComponent(fileName);
+        const link = document.createElement('a');
+        link.href = DAV_API_ROOT + fullPath;
+        link.download = fileNameDecoded;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
     // 处理删除（完全不变）
     async function handleDelete(fullPath, isDir) {
-        const confirmMsg = isDir 
+        const confirmMsg = isDir
             ? `⚠️ 确定要删除此目录吗？\n注意：仅支持删除空目录，非空目录会删除失败`
             : `⚠️ 确定要删除此文件吗？`;
         if (!confirm(confirmMsg)) return;
